@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Cargar CSV - Cyberpunk</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background: #000;
+            background-image: url('/static/lain.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            font-family: 'Share Tech Mono', monospace;
+            color: #fff;
+            overflow-x: hidden;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            text-align: center;
+            padding: 20px;
+            animation: fadeIn 2s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 30px;
+            color: #e100ff;
+            text-shadow: 0 0 10px #e100ff;
+            letter-spacing: 2px;
+        }
+
+        /* FORMULARIO ACTUALIZADO (FUNCIONAL) */
+        form {
+            background-color: rgba(10, 5, 20, 0.8);
+            padding: 30px;
+            border-radius: 5px;
+            border: 1px solid #e100ff;
+            box-shadow: 0 0 15px #e100ff, 
+                        inset 0 0 10px rgba(225, 0, 255, 0.3);
+            width: 300px;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+
+        .file-input-wrapper input[type="file"] {
+            font-size: 100px;
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+        }
+
+        .file-input-label {
+            display: block;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid #e100ff;
+            color: #e100ff;
+            text-align: center;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-shadow: 0 0 5px #e100ff;
+        }
+
+        .file-input-label:hover {
+            background: rgba(225, 0, 255, 0.2);
+            box-shadow: 0 0 15px #e100ff;
+        }
+
+        button {
+            background: transparent;
+            border: 1px solid #e100ff;
+            color: #e100ff;
+            padding: 12px 25px;
+            margin-top: 20px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 1em;
+            font-family: 'Share Tech Mono', monospace;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-shadow: 0 0 5px #e100ff;
+            width: 100%;
+        }
+
+        button:hover {
+            background: rgba(225, 0, 255, 0.2);
+            box-shadow: 0 0 15px #e100ff;
+        }
+
+        /* Resto de estilos */
+        .button-group {
+            margin: 30px 0;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .button-group button {
+            margin: 0;
+            padding: 8px 15px;
+            font-size: 0.8em;
+            width: auto;
+        }
+
+        .graph-container {
+            background-color: rgba(10, 5, 20, 0.8);
+            padding: 20px;
+            border-radius: 5px;
+            border: 1px solid #e100ff;
+            box-shadow: 0 0 15px #e100ff;
+            margin-top: 20px;
+            max-width: 90%;
+        }
+
+        .alert {
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 3px;
+            border: 1px solid;
+            font-family: 'Share Tech Mono', monospace;
+            width: 100%;
+        }
+
+        .alert-error {
+            background-color: rgba(244, 67, 54, 0.2);
+            border-color: #ff3366;
+            color: #ff3366;
+            text-shadow: 0 0 5px #ff3366;
+            box-shadow: 0 0 10px rgba(244, 67, 54, 0.5);
+        }
+
+        canvas {
+            max-width: 100%;
+            height: auto !important;
+        }
+
+        /* Efecto scanlines */
+        body::after {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+            background-size: 100% 2px;
+            pointer-events: none;
+            z-index: 100;
+            opacity: 0.3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Sube tu archivo CSV</h1>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form action="/upload" method="post" enctype="multipart/form-data">
+            <div class="file-input-wrapper">
+                <span class="file-input-label" id="fileLabel">Seleccionar archivo CSV</span>
+                <input type="file" name="file" id="fileInput" accept=".csv" required>
+            </div>
+            <button type="submit">Cargar Datos</button>
+        </form>
+
+        {% if labels and values %}
+        <div class="button-group">
+            <button onclick="changeChartType('bar')">Barras</button>
+            <button onclick="changeChartType('line')">Líneas</button>
+            <button onclick="changeChartType('pie')">Pastel</button>
+            <button onclick="changeChartType('doughnut')">Donut</button>
+            <button onclick="changeChartType('radar')">Radar</button>
+        </div>
+
+        <div class="graph-container">
+            <canvas id="myChart" width="600" height="400"></canvas>
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        // Mostrar nombre del archivo seleccionado
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const fileName = e.target.files[0]?.name || 'Seleccionar archivo CSV';
+            document.getElementById('fileLabel').textContent = fileName;
+        });
+
+        {% if labels and values %}
+        let chartType = 'bar';
+
+        const ctx = document.getElementById('myChart').getContext('2d');
+        let myChart = new Chart(ctx, {
+            type: chartType,
+            data: {
+                labels: {{ labels|tojson }},
+                datasets: [{
+                    label: 'Datos del CSV',
+                    data: {{ values|tojson }},
+                    backgroundColor: [
+                        'rgba(225, 0, 255, 0.7)',
+                        'rgba(0, 204, 255, 0.7)',
+                        'rgba(102, 255, 0, 0.7)',
+                        'rgba(255, 153, 0, 0.7)',
+                        'rgba(255, 0, 102, 0.7)'
+                    ],
+                    borderColor: 'rgba(255, 255, 255, 0.3)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#e100ff',
+                            font: {
+                                family: "'Share Tech Mono', monospace"
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { color: '#00ccff' },
+                        grid: { color: 'rgba(0, 204, 255, 0.1)' }
+                    },
+                    x: {
+                        ticks: { color: '#00ccff' },
+                        grid: { color: 'rgba(0, 204, 255, 0.1)' }
+                    }
+                }
+            }
+        });
+
+        function changeChartType(newType) {
+            myChart.destroy();
+            myChart = new Chart(ctx, {
+                type: newType,
+                data: {
+                    labels: {{ labels|tojson }},
+                    datasets: [{
+                        label: 'Datos del CSV',
+                        data: {{ values|tojson }},
+                        backgroundColor: [
+                            'rgba(225, 0, 255, 0.7)',
+                            'rgba(0, 204, 255, 0.7)',
+                            'rgba(102, 255, 0, 0.7)',
+                            'rgba(255, 153, 0, 0.7)',
+                            'rgba(255, 0, 102, 0.7)'
+                        ],
+                        borderColor: 'rgba(255, 255, 255, 0.3)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#e100ff',
+                                font: {
+                                    family: "'Share Tech Mono', monospace"
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { color: '#00ccff' },
+                            grid: { color: 'rgba(0, 204, 255, 0.1)' }
+                        },
+                        x: {
+                            ticks: { color: '#00ccff' },
+                            grid: { color: 'rgba(0, 204, 255, 0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+        {% endif %}
+    </script>
+</body>
+</html>
